@@ -1,0 +1,161 @@
+\ This is a VI or Variable Interval schedule program 
+\ Initial Lever Press Results in One Reward 
+\ with 3min Lever Inactivity Timer Resulting in One Reward
+\ Filename, L_VI_Pellet_3minIAT_EL.MPC
+\ Date of Last Edit: 1_30_2021
+\ Author: Esteban Loetz
+
+\Inputs
+^LeftLever  = 1
+^RightLever = 3
+
+\Outputs
+^LeftExtend    = 1
+^RightExtend   = 2
+^Reward        = 3
+^Shock         = 4
+^RightCueLight = 5
+^Tone          = 6
+^HouseLight    = 7
+^WhiteNoise    = 8
+
+\ Variables
+\ C = Time Variable for Inactivity Timer
+\ D = Max Inactivity Time
+\ F = Variable Time Inputs For Time of Reward Activation
+\ L = Left Lever Response Counter
+\ M = Maximum Rewards
+\ P = Reward Counter
+\ R = Right Lever Response Counter
+\ T = Time in Seconds
+\ Y Needed to Show Program Name
+\ Z() = Variable Ratio Array
+
+DIM A = 1000 \ Array for Recording Response Times
+\ I is Used to index the of Left Lever Array
+\ T is the Elapsed Seconds
+
+DIM B = 0 \ Array for Recording Response Times
+\ N is Used to index the of Right Lever Array
+\ T is the Elapsed Seconds
+
+List Z = 15", 23", 28", 32", 35", 37", 40"
+
+S.S.1, \ Main Control Logic for Variable Interval Schedule
+S1,
+ #START: SHOW 5,L_VI_Pellet_3minIAT_EL,Y; SET M = 40; SET D = 1 ---> SX \ Program Name Appears on Screen
+                                                                        \ Max Rewards are Defined
+                                                                        \ Max Inactivity Time is Defined
+                                                                        \ Upon Sending Start Signal
+
+S.S.2, \ Elapsed Time Display (Minutes)
+S1,
+ #START ---> S2
+S2,
+ 0.1": SET T = T + 0.1; SHOW 4,Elapsed Time,T/60 ---> SX \ Count Elapsed Time
+
+S.S.3, \ Right Lever Extends Upon Sending Start Signal
+S1,
+ #START: ON ^LeftExtend ---> S2
+S2,
+ #R^LeftLever: ON ^Reward ---> S3
+S3,
+ 0.05": OFF ^Reward ---> S4
+S4,
+ #Z1: RANDD F = Z; SHOW 6, VI =,F/100 ---> S5 \ Control for Random VI Array
+S5,
+ F#T: ON ^Reward ---> S6
+S6,
+ 0.5": OFF ^Reward; Z2 ---> S4 \ Pellet Dispenser Activates 0.5 Seconds
+                               \ One Pellet Should be Dispensed
+                               \ Z2-Pulse Acts as Output Allowing
+                               \ Number of Rewards to be Counted
+
+S.S.4, \ Left Lever Response Counter and Display
+       \ This will now label "Left Responses"
+       \ When the START command is issued
+S1,
+ #START: SHOW 2,Left Responses,L ---> S2 \ Lever Responses Show on Screen
+                                         \ When the Left Lever is Pressed
+S2,
+ #R^LeftLever: ADD L; SHOW 2,Left Responses,L; Z3 ---> SX \ Number of Left Lever Presses
+                                                          \ Will Sum and Show on Screen
+                                                          \ Z3-Pulse Acts as Output Allowing
+                                                          \ LeftLever Presses to Initiate
+                                                          \ the Lever Inactivity Timer
+
+S.S.5, \ Lever Inactivity Timer
+S1,
+ #Z3: ON ^HouseLight ---> S2
+S2,
+ 1": SET C = C + 1; 
+       IF C >= 1 [@True,@False]
+          @True:  ---> S3
+          @False: ---> SX
+S3,
+ .01": ON ^Reward ---> S4
+S4,
+ 0.05": OFF ^ Reward ---> S1
+
+S.S.6,
+S1,
+ #START ---> S2
+S2,
+ #R^LeftLever:SET A(I) = T; ADD I; \ Put Elapsed Left Lever Press Times
+                                   \ in Successive Elements in the Array
+              SET A(I) =-987.987 ---> SX \ Seal the Array
+
+S.S.7, \ Prevent Access of Array Beyond end of Array
+S1,
+ 1000#R^LeftLever: PRINT ---> STOPABORTFLUSH
+
+S.S.8, \ Right Lever Response Counter and Display
+       \ This will now label "Right Responses"
+       \ When the START command is issued
+S1,
+ #START: SHOW 1,Right Responses,R ---> S2 \ Lever Responses Show on Screen
+                                          \ When the Left Lever is Pressed
+S2,
+ #R^RightLever: ADD R; SHOW 1,Right Responses,R ---> SX \ Number of Right Lever Presses
+                                                        \ Will Sum and Show on Screen
+S.S.9,
+S1,
+ #START ---> S2
+S2,
+ #R^RightLever:SET B(N) = T; ADD N; \ Put Elapsed Time in Successive Elements
+                                    \ in Successive Elements in the Array
+               SET B(N) =-987.987 ---> SX \ Seal the Array
+
+S.S.10, \ Prevent Access of Array Beyond end of Array
+S1,
+ 1000#R^RightLever: PRINT ---> STOPABORTFLUSH
+
+S.S.11, \ LeftLever Press Creating a Z-Pulse (Z1)
+S1,
+ #START ---> S2
+S2,
+ #R^LeftLever: Z1 ---> SX
+
+S.S.12, \ Reward Counter and Display
+S1,
+ #START: SHOW 3,Reward Counter,P ---> S2 \ 'Reward Counter' Appears on Screen
+                                         \ Immediately Upon Sending Start Signal
+S2,
+ #Z2: ADD P; SHOW 3,Reward Counter,P ---> SX \ Number of Reward Activations
+                                             \ Will Sum and Show on Screen
+
+S.S.13, \ Session ENDs IF Max Rewards are Accumulated
+S1,
+ #Z2: IF P = M [@True,@False]
+       @True: ---> STOPABORTFLUSH
+       @False: SHOW 3, Reward Counter,P ---> SX
+
+S.S.14, \ Session Timer
+S1,
+ #START: ---> S2 \ Session Timer Begins
+                 \ Immediately Upon Sending Start Signal
+                 \ This Controls the Length of the Trial
+
+ S2,
+ 180.1': ---> STOPABORTFLUSH \ This Causes the Program to Stop and Save
+                             \ Data on its Own after 3hrs
